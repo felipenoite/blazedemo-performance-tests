@@ -1,0 +1,58 @@
+name: Performance Tests - BlazeDemo
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  performance:
+    name: Run Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install JMeter
+        run: |
+          wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz
+          tar -xzf apache-jmeter-5.6.3.tgz
+          echo "$PWD/apache-jmeter-5.6.3/bin" >> $GITHUB_PATH
+
+      - name: Run Load Test
+        run: |
+          jmeter -n -t scripts/blazedemo-load-test.jmx -l results/load-test-ci.csv -e -o results/load-report
+
+      - name: Run Spike Test
+        run: |
+          jmeter -n -t scripts/blazedemo-spike-test.jmx -l results/spike-test-ci.csv -e -o results/spike-report
+
+      - name: Upload Load Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results
+          path: results/load-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload Spike Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spike-test-results
+          path: results/spike-report/
+          retention-days: 30
+          if-no-files-found: ignore
