@@ -1,8 +1,6 @@
 # 📊 Relatório de Execução — BlazeDemo Performance Tests
 
-Data de execução: **31/03/2026**
 Ferramenta: **Apache JMeter 5.6.3**
-Ambiente: **Local (Windows)**
 
 ---
 
@@ -16,10 +14,11 @@ Ambiente: **Local (Windows)**
 
 ---
 
-## 📈 Resultados
+## 📈 Resultados — Execução Local (Windows)
+
+Data de execução: **31/03/2026**
 
 ### Teste de Carga
-Configuração: **250 usuários | Ramp-up: 10 segundos | 1 loop**
 
 | Requisição | Amostras | Média (ms) | P90 (ms) | P95 (ms) | Erro % | Throughput |
 |-----------|----------|------------|----------|----------|--------|------------|
@@ -29,7 +28,6 @@ Configuração: **250 usuários | Ramp-up: 10 segundos | 1 loop**
 | **TOTAL** | **750** | **375** | **482** | **550** | **0.00%** | **69.3/sec** |
 
 ### Teste de Pico
-Configuração: **250 usuários | Ramp-up: 1 segundo | 1 loop**
 
 | Requisição | Amostras | Média (ms) | P90 (ms) | P95 (ms) | Erro % | Throughput |
 |-----------|----------|------------|----------|----------|--------|------------|
@@ -40,35 +38,71 @@ Configuração: **250 usuários | Ramp-up: 1 segundo | 1 loop**
 
 ---
 
+## 📈 Resultados — Execução em CI (GitHub Actions / Ubuntu)
+
+### Teste de Carga
+
+| Requisição | Amostras | Média (ms) | P90 (ms) | P95 (ms) | Erro % | Throughput |
+|-----------|----------|------------|----------|----------|--------|------------|
+| GET - Home | 250 | 301.83 | 374.70 | 719.60 | 0.00% | 24.74/sec |
+| POST - Reserve | 250 | 202.18 | 237.90 | 261.35 | 0.00% | 26.88/sec |
+| POST - Purchase | 250 | 205.43 | 245.00 | 271.45 | 0.00% | 26.93/sec |
+| **TOTAL** | **750** | **236.48** | **285.00** | **326.80** | **0.00%** | **71.42/sec** |
+
+### Teste de Pico
+
+| Requisição | Amostras | Média (ms) | P90 (ms) | P95 (ms) | Erro % | Throughput |
+|-----------|----------|------------|----------|----------|--------|------------|
+| GET - Home | 250 | 1754.80 | 2281.00 | 2501.45 | 0.00% | 74.47/sec |
+| POST - Reserve | 250 | 802.49 | 1309.70 | 1449.00 | 0.00% | 101.30/sec |
+| POST - Purchase | 250 | 628.26 | 1223.90 | 1324.35 | 0.00% | 103.56/sec |
+| **TOTAL** | **750** | **1061.85** | **1953.90** | **2179.80** | **0.00%** | **163.15/sec** |
+
+---
+
 ## 🔍 Análise dos Critérios de Aceitação
 
 ### Critério 1 — P90 < 2000ms
-✅ **Aprovado** nos dois testes:
 
+#### Execução Local
 | Teste | P90 Total | Limite | Resultado |
 |-------|-----------|--------|-----------|
 | Carga | 482ms | 2000ms | ✅ 76% abaixo do limite |
 | Pico | 924ms | 2000ms | ✅ 54% abaixo do limite |
 
-### Critério 2 — Throughput de 250 req/s
-⚠️ **Não atingido** em nenhum dos testes:
+#### Execução CI
+| Teste | P90 Total | Limite | Resultado |
+|-------|-----------|--------|-----------|
+| Carga | 285ms | 2000ms | ✅ 86% abaixo do limite |
+| Pico | 1953.90ms | 2000ms | ⚠️ 46ms abaixo do limite |
 
-| Teste | Throughput Obtido | Meta | Resultado |
-|-------|------------------|------|-----------|
-| Carga | 69.3 req/s | 250 req/s | ⚠️ 72% abaixo da meta |
-| Pico | 203.4 req/s | 250 req/s | ⚠️ 19% abaixo da meta |
+> ⚠️ No teste de pico em CI, o endpoint **GET - Home** atingiu P90 de **2281ms**, ultrapassando o limite de 2000ms.
+
+### Critério 2 — Throughput de 250 req/s
+
+| Ambiente | Teste | Throughput Obtido | Meta | Resultado |
+|----------|-------|------------------|------|-----------|
+| Local | Carga | 69.3 req/s | 250 req/s | ⚠️ Não atingido |
+| Local | Pico | 203.4 req/s | 250 req/s | ⚠️ Não atingido |
+| CI | Carga | 71.42 req/s | 250 req/s | ⚠️ Não atingido |
+| CI | Pico | 163.15 req/s | 250 req/s | ⚠️ Não atingido |
 
 ---
 
 ## 💡 Conclusão
 
-O critério de **P90 abaixo de 2000ms foi amplamente satisfeito** nos dois cenários, demonstrando que o servidor do BlazeDemo responde de forma estável e dentro do tempo esperado mesmo sob carga simultânea de 250 usuários.
+### Critério de P90
+O critério de P90 < 2000ms foi **aprovado na execução local** nos dois cenários e **aprovado no CI para o teste de carga**. Porém, no **teste de pico em CI**, o P90 total ficou em 1953ms — apenas 46ms abaixo do limite — e o endpoint **GET - Home** ultrapassou o limite com 2281ms.
 
-O critério de **throughput de 250 req/s não foi atingido**. Isso ocorre porque o throughput é diretamente influenciado pelo tempo de resposta do servidor — quanto mais tempo o servidor leva para responder, menos requisições por segundo são processadas. Com 250 usuários executando 1 loop cada, o volume total de requisições se esgota antes de sustentar 250 req/s de forma contínua.
+Essa divergência entre os ambientes evidencia que o teste de pico é sensível à latência de rede e capacidade do servidor. Em ambiente local a conexão é mais estável, enquanto no CI a carga simultânea de 250 usuários com ramp-up de 1 segundo pressionou mais o servidor do BlazeDemo, que é um ambiente de demonstração sem garantias de SLA.
+
+### Critério de Throughput
+O critério de 250 req/s **não foi atingido** em nenhum ambiente ou cenário. Isso ocorre porque o throughput é diretamente influenciado pelo tempo de resposta do servidor — quanto mais lenta a resposta, menos requisições por segundo são processadas. Com 250 usuários executando 1 loop cada, o volume total de requisições se esgota antes de sustentar 250 req/s de forma contínua.
 
 Para atingir 250 req/s de forma sustentada seria necessário:
 - Aumentar o número de usuários simultâneos, ou
-- Aumentar o número de loops para manter o fluxo contínuo de requisições, ou
+- Aumentar o número de loops para manter o fluxo contínuo, ou
 - Combinar as duas abordagens
 
-Vale destacar que o **teste de pico chegou a 203.4 req/s** — próximo da meta — mesmo com o servidor sob pressão máxima de ramp-up de 1 segundo, e ainda assim sem nenhum erro registrado (Error % = 0.00%), o que é um indicativo positivo de resiliência da aplicação.
+### Consideração Final
+Apesar do critério de throughput não ter sido atingido, o resultado mais crítico — o **P90** — foi satisfeito na grande maioria dos cenários, com o servidor demonstrando boa resiliência com **0.00% de erros** em todas as execuções.
